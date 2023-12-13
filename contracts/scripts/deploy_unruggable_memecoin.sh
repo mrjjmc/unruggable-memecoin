@@ -6,10 +6,10 @@
 # 2: name of the token
 # 3: symbol of the token
 # 4: initial supply of tokens
-RECIPIENT_ADDRESS=$1
-TOKEN_NAME=$2
-TOKEN_SYMBOL=$3
-INITIAL_SUPPLY=$4
+RECIPIENT_ADDRESS=42069
+TOKEN_NAME=$NibbaBallsInu
+TOKEN_SYMBOL=$NBI
+INITIAL_SUPPLY=21000000
 DECIMALS_18_SUFFIX="000000000000000000"
 
 # Requires the following env variables to be set:
