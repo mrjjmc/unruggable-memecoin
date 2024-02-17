@@ -1,11 +1,9 @@
-//! `UnruggableMemecoin` is an ERC20 token has additional features to prevent rug pulls.
+//! `UnruggableMemecoin` is an ERC20 token with additional features to prevent rug pulls.
 use starknet::ContractAddress;
 
 #[starknet::interface]
 trait IUnruggableMemecoin<TState> {
-    // ************************************
-    // * Standard ERC20 functions
-    // ************************************
+    // Standard ERC20 functions
     fn name(self: @TState) -> felt252;
     fn symbol(self: @TState) -> felt252;
     fn decimals(self: @TState) -> u8;
@@ -17,40 +15,28 @@ trait IUnruggableMemecoin<TState> {
         ref self: TState, sender: ContractAddress, recipient: ContractAddress, amount: u256
     ) -> bool;
     fn approve(ref self: TState, spender: ContractAddress, amount: u256) -> bool;
-    // ************************************
-    // * Additional functions
-    // ************************************
+    // Additional functions
     fn launch_memecoin(ref self: TState);
 }
 
 #[starknet::contract]
 mod UnruggableMemecoin {
-    // Core dependencies.
-    use openzeppelin::access::ownable::ownable::OwnableComponent::InternalTrait;
-    use integer::BoundedInt;
+    // Core dependencies
     use starknet::{ContractAddress, get_caller_address};
     use zeroable::Zeroable;
 
-    // External dependencies.
-    use openzeppelin::access::ownable::OwnableComponent;
+    // External dependencies
+    use openzeppelin::access::ownable::ownable::OwnableComponent::InternalTrait;
+    use openzeppelin::token::erc20::ERC20;
 
-    // Internal dependencies.
-    use super::IUnruggableMemecoin;
-
-    // Components.
+    // Components
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
 
-    // Constants.
+    // Constants
     const DECIMALS: u8 = 18;
-    /// The maximum number of holders allowed before launch.
-    /// This is to prevent the contract from being launched with a large number of holders.
-    /// Once reached, transfers are disabled until the memecoin is launched.
     const MAX_HOLDERS_BEFORE_LAUNCH: u8 = 10;
-    /// The maximum percentage of the total supply that can be allocated to the team.
-    /// This is to prevent the team from having too much control over the supply.
     const MAX_SUPPLY_PERCENTAGE_TEAM_ALLOCATION: u8 = 10;
-    /// The maximum percentage of the supply that can be bought at once.
     const MAX_PERCENTAGE_BUY_LAUNCH: u8 = 2;
 
     #[storage]
@@ -61,9 +47,9 @@ mod UnruggableMemecoin {
         total_supply: u256,
         balances: LegacyMap<ContractAddress, u256>,
         allowances: LegacyMap<(ContractAddress, ContractAddress), u256>,
-        // Components.
+        // Components
         #[substorage(v0)]
-        ownable: OwnableComponent::Storage
+        ownable: OwnableComponent::Storage,
     }
 
     #[event]
@@ -72,30 +58,23 @@ mod UnruggableMemecoin {
         Transfer: Transfer,
         Approval: Approval,
         #[flat]
-        OwnableEvent: OwnableComponent::Event
+        OwnableEvent: OwnableComponent::Event,
     }
 
     #[derive(Drop, starknet::Event)]
     struct Transfer {
         from: ContractAddress,
         to: ContractAddress,
-        value: u256
+        value: u256,
     }
 
     #[derive(Drop, starknet::Event)]
     struct Approval {
         owner: ContractAddress,
         spender: ContractAddress,
-        value: u256
+        value: u256,
     }
 
-    /// Constructor called once when the contract is deployed.
-    /// # Arguments
-    /// * `owner` - The owner of the contract.
-    /// * `initial_recipient` - The initial recipient of the initial supply.
-    /// * `name` - The name of the token.
-    /// * `symbol` - The symbol of the token.
-    /// * `initial_supply` - The initial supply of the token.
     #[constructor]
     fn constructor(
         ref self: ContractState,
@@ -103,37 +82,19 @@ mod UnruggableMemecoin {
         initial_recipient: ContractAddress,
         name: felt252,
         symbol: felt252,
-        initial_supply: u256
+        initial_supply: u256,
     ) {
-        // Initialize the ERC20 token.
-        self.initializer(name, symbol);
-
-        // Initialize the owner.
+        ERC20::InternalImpl::initializer(ref self, name, symbol);
         self.ownable.initializer(owner);
-
-        // Mint initial supply to the initial recipient.
         self._mint(initial_recipient, initial_supply);
     }
 
-    //
-    // External
-    //
     #[abi(embed_v0)]
     impl UnruggableMemecoinImpl of IUnruggableMemecoin<ContractState> {
-        // ************************************
-        // * UnruggableMemecoin functions
-        // ************************************
         fn launch_memecoin(ref self: ContractState) {
-            // Checks: Only the owner can launch the memecoin.
             self.ownable.assert_only_owner();
-        // Effects.
-
-        // Interactions.
         }
 
-        // ************************************
-        // * Standard ERC20 functions
-        // ************************************
         fn name(self: @ContractState) -> felt252 {
             self.name.read()
         }
@@ -170,7 +131,7 @@ mod UnruggableMemecoin {
             ref self: ContractState,
             sender: ContractAddress,
             recipient: ContractAddress,
-            amount: u256
+            amount: u256,
         ) -> bool {
             let caller = get_caller_address();
             self._spend_allowance(sender, caller, amount);
@@ -194,9 +155,9 @@ mod UnruggableMemecoin {
 
     #[external(v0)]
     fn increaseAllowance(
-        ref self: ContractState, spender: ContractAddress, addedValue: u256
+        ref self: ContractState, spender: ContractAddress, added_value: u256
     ) -> bool {
-        increase_allowance(ref self, spender, addedValue)
+        increase_allowance(ref self, spender, added_value)
     }
 
     #[external(v0)]
@@ -208,84 +169,12 @@ mod UnruggableMemecoin {
 
     #[external(v0)]
     fn decreaseAllowance(
-        ref self: ContractState, spender: ContractAddress, subtractedValue: u256
+        ref self: ContractState, spender: ContractAddress, subtracted_value: u256
     ) -> bool {
-        decrease_allowance(ref self, spender, subtractedValue)
+        decrease_allowance(ref self, spender, subtracted_value)
     }
-
-    //
-    // Internal
-    //
 
     #[generate_trait]
     impl UnruggableMemecoinInternalImpl of UnruggableMemecoinInternalTrait {
-        fn initializer(ref self: ContractState, name_: felt252, symbol_: felt252) {
-            self.name.write(name_);
-            self.symbol.write(symbol_);
-        }
-
         fn _increase_allowance(
-            ref self: ContractState, spender: ContractAddress, added_value: u256
-        ) -> bool {
-            let caller = get_caller_address();
-            self._approve(caller, spender, self.allowances.read((caller, spender)) + added_value);
-            true
-        }
-
-        fn _decrease_allowance(
-            ref self: ContractState, spender: ContractAddress, subtracted_value: u256
-        ) -> bool {
-            let caller = get_caller_address();
-            self
-                ._approve(
-                    caller, spender, self.allowances.read((caller, spender)) - subtracted_value
-                );
-            true
-        }
-
-        fn _mint(ref self: ContractState, recipient: ContractAddress, amount: u256) {
-            assert(!recipient.is_zero(), 'ERC20: mint to 0');
-            self.total_supply.write(self.total_supply.read() + amount);
-            self.balances.write(recipient, self.balances.read(recipient) + amount);
-            self.emit(Transfer { from: Zeroable::zero(), to: recipient, value: amount });
-        }
-
-        fn _burn(ref self: ContractState, account: ContractAddress, amount: u256) {
-            assert(!account.is_zero(), 'ERC20: burn from 0');
-            self.total_supply.write(self.total_supply.read() - amount);
-            self.balances.write(account, self.balances.read(account) - amount);
-            self.emit(Transfer { from: account, to: Zeroable::zero(), value: amount });
-        }
-
-        fn _approve(
-            ref self: ContractState, owner: ContractAddress, spender: ContractAddress, amount: u256
-        ) {
-            assert(!owner.is_zero(), 'ERC20: approve from 0');
-            assert(!spender.is_zero(), 'ERC20: approve to 0');
-            self.allowances.write((owner, spender), amount);
-            self.emit(Approval { owner, spender, value: amount });
-        }
-
-        fn _transfer(
-            ref self: ContractState,
-            sender: ContractAddress,
-            recipient: ContractAddress,
-            amount: u256
-        ) {
-            assert(!sender.is_zero(), 'ERC20: transfer from 0');
-            assert(!recipient.is_zero(), 'ERC20: transfer to 0');
-            self.balances.write(sender, self.balances.read(sender) - amount);
-            self.balances.write(recipient, self.balances.read(recipient) + amount);
-            self.emit(Transfer { from: sender, to: recipient, value: amount });
-        }
-
-        fn _spend_allowance(
-            ref self: ContractState, owner: ContractAddress, spender: ContractAddress, amount: u256
-        ) {
-            let current_allowance = self.allowances.read((owner, spender));
-            if current_allowance != BoundedInt::max() {
-                self._approve(owner, spender, current_allowance - amount);
-            }
-        }
-    }
-}
+            ref self: ContractState, spender: ContractAddress, added_value:
